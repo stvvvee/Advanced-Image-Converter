@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Image Converter</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* Gray 900 */
+            color: #f3f4f6; /* Gray 100 */
+        }
+        #asciiOutput {
+            font-family: 'Courier New', Courier, monospace;
+            line-height: 0.7;
+            white-space: pre;
+            overflow: hidden;
+            font-size: 8px; /* Default font size */
+        }
+
+        /* Custom styles for sliders */
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 4px; background: #4b5563;
+            border-radius: 2px; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 16px; height: 16px; background: #e5e7eb;
+            border-radius: 50%; cursor: pointer; border: 2px solid #16a34a; /* Green 600 */
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 16px; height: 16px; background: #e5e7eb;
+            border-radius: 50%; cursor: pointer; border: 2px solid #16a34a; /* Green 600 */
+        }
+        select { background-color: #374151; border-color: #4b5563; }
+        .color-input-wrapper { position: relative; width: 40px; height: 40px; }
+        input[type="color"] {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; opacity: 0; cursor: pointer;
+        }
+        .color-input-display {
+            width: 100%; height: 100%; border-radius: 0.375rem;
+            border: 2px solid #4b5563; pointer-events: none;
+        }
+        .spinner {
+            border: 2px solid #f3f3f3; border-top: 2px solid #16a34a; /* Green 600 */
+            border-radius: 50%; width: 16px; height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .mode-btn.active { background-color: #16a34a; color: white; } /* Green 600 */
+        .mode-btn { background-color: #374151; color: #d1d5db; }
+        #previewContainer { cursor: grab; }
+        #previewContainer.grabbing { cursor: grabbing; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4 relative">
+
+    <div class="absolute top-6 left-6">
+        <a href="https://www.instagram.com/stv.svg" target="_blank" rel="noopener noreferrer" class="text-3xl font-bold text-green-400 hover:text-green-300 transition-colors">stv</a>
+    </div>
+
+    <div class="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- ===== CONTROLS PANEL ===== -->
+        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl col-span-1 flex flex-col h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4 flex-shrink-0">
+                <h2 class="text-2xl font-bold">Controls</h2>
+                <button id="resetControlsButton" class="text-sm text-gray-400 hover:text-white">Reset</button>
+            </div>
+            
+            <div id="sourceImageContainer" class="hidden mb-6 flex-shrink-0">
+                <h3 class="font-semibold mb-2">Source Image</h3>
+                <div class="flex items-center gap-4">
+                    <img id="sourceImagePreview" class="w-16 h-16 object-cover rounded-md border-2 border-gray-600" crossOrigin="anonymous">
+                    <div>
+                        <p id="imageName" class="text-sm font-medium truncate"></p>
+                        <button id="replaceImageButton" class="text-sm text-green-400 hover:text-green-300">Replace</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="uploadContainer" class="flex-shrink-0">
+                 <label for="imageLoader" class="w-full text-center block cursor-pointer py-3 px-4 bg-green-600 hover:bg-green-700 rounded-md font-semibold transition-colors">
+                    Upload Image
+                </label>
+                <input type="file" id="imageLoader" accept="image/*" class="hidden"/>
+            </div>
+
+            <!-- Mode Selector -->
+            <div class="mt-6 pt-6 border-t border-gray-700 flex-shrink-0">
+                <h3 class="font-semibold mb-4">Conversion Mode</h3>
+                <div class="flex rounded-md shadow-sm">
+                    <button id="modeBitmap" class="mode-btn active w-full px-4 py-2 text-sm font-medium rounded-l-md focus:z-10 focus:outline-none">Bitmap</button>
+                    <button id="modeHalftone" class="mode-btn w-full px-4 py-2 text-sm font-medium focus:z-10 focus:outline-none">Halftone</button>
+                    <button id="modeAscii" class="mode-btn w-full px-4 py-2 text-sm font-medium rounded-r-md focus:z-10 focus:outline-none">ASCII</button>
+                </div>
+            </div>
+            
+            <div class="mt-6 pt-6 border-t border-gray-700 flex-shrink-0">
+                <h3 class="font-semibold mb-4">Image Adjustment</h3>
+                <div class="space-y-4">
+                    <div><label for="brightness" class="block text-sm mb-1">Brightness</label><input type="range" id="brightness" min="-100" max="100" value="0" class="w-full"></div>
+                    <div><label for="contrast" class="block text-sm mb-1">Contrast</label><input type="range" id="contrast" min="-100" max="100" value="0" class="w-full"></div>
+                    <div><label for="complexity" class="block text-sm mb-1">Complexity</label><input type="range" id="complexity" min="0" max="100" value="100" class="w-full"></div>
+                </div>
+            </div>
+            
+            <div id="bitmapControls" class="mt-6 pt-6 border-t border-gray-700 flex-shrink-0">
+                <h3 class="font-semibold mb-4">Bitmap Style</h3>
+                <div><label for="ditheringAlgorithm" class="block text-sm mb-1">Dithering Algorithm</label>
+                    <select id="ditheringAlgorithm" class="w-full bg-gray-700 rounded-md p-2 text-sm">
+                        <option value="floyd-steinberg">Floyd-Steinberg</option>
+                        <option value="jarvis-judice-ninke">Jarvis-Judice-Ninke</option>
+                        <option value="stucki">Stucki</option>
+                        <option value="atkinson">Atkinson</option>
+                        <option value="bayer4x4">Bayer 4x4</option>
+                        <option value="bayer8x8">Bayer 8x8</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div id="halftoneControls" class="hidden mt-6 pt-6 border-t border-gray-700 flex-shrink-0">
+                <h3 class="font-semibold mb-4">Halftone Style</h3>
+                <div><label for="dotShape" class="block text-sm mb-1">Dot Shape</label>
+                    <select id="dotShape" class="w-full bg-gray-700 rounded-md p-2 text-sm">
+                        <option value="circle">Circle</option>
+                        <option value="square">Square</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="asciiControls" class="hidden mt-6 pt-6 border-t border-gray-700 flex-shrink-0">
+                <h3 class="font-semibold mb-4">ASCII Style</h3>
+                <div><label for="characterSet" class="block text-sm mb-1">Character Set</label><input type="text" id="characterSet" value="@%#*+=-:. " class="w-full bg-gray-700 rounded-md p-2 text-sm"></div>
+            </div>
+            
+            <div class="mt-6 pt-6 border-t border-gray-700 flex-shrink-0">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold">Color Palette</h3>
+                    <button id="suggestPaletteButton" class="flex items-center gap-2 text-sm bg-teal-600 hover:bg-teal-700 px-3 py-1 rounded-md disabled:bg-gray-600 disabled:cursor-wait" disabled>
+                        <span id="suggestPaletteSpinner" class="hidden spinner"></span>
+                        ✨ Suggest
+                    </button>
+                </div>
+                <div class="flex gap-4 items-center justify-center">
+                    <div class="text-center"><p class="text-sm mb-2">BG</p><div class="color-input-wrapper"><div id="bgColorDisplay" class="color-input-display" style="background-color: #000000;"></div><input type="color" id="bgColor" value="#000000"></div></div>
+                    <button id="swapColorsButton" class="p-2 mt-6 rounded-full hover:bg-gray-700 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left-right" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5zm14-7a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 1 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 4H14.5a.5.5 0 0 1 .5.5z"/></svg>
+                    </button>
+                    <div class="text-center"><p class="text-sm mb-2">FG</p><div class="color-input-wrapper"><div id="fgColorDisplay" class="color-input-display" style="background-color: #ffffff;"></div><input type="color" id="fgColor" value="#ffffff"></div></div>
+                </div>
+                <div id="paletteDescription" class="mt-4 text-sm text-gray-400 italic bg-gray-700/50 p-3 rounded-md hidden"></div>
+            </div>
+            
+            <div class="mt-auto pt-8 flex-shrink-0 space-y-4">
+                 <button id="describeArtButton" class="w-full flex justify-center items-center gap-2 bg-emerald-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-emerald-700 transition duration-300 ease-in-out disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                    <span id="describeArtSpinner" class="hidden spinner"></span>
+                    ✨ Describe My Art
+                 </button>
+                 <button id="downloadButton" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition duration-300 ease-in-out disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                    Download
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== PREVIEW PANEL ===== -->
+        <div id="previewPanel" class="bg-black p-4 rounded-lg shadow-2xl col-span-1 lg:col-span-2 flex items-center justify-center h-[85vh] relative overflow-hidden">
+            <div id="previewContainer" class="transition-transform duration-200">
+                <canvas id="previewCanvas" class="hidden max-w-full max-h-full"></canvas>
+                <pre id="asciiOutput" class="hidden max-w-full max-h-full"></pre>
+            </div>
+            <p id="previewPlaceholder" class="text-gray-500">Image preview will appear here</p>
+            <div id="artDescription" class="absolute bottom-4 left-4 right-4 bg-black/70 backdrop-blur-sm p-4 rounded-lg text-center text-sm italic hidden"></div>
+            <div class="absolute bottom-4 right-4 bg-gray-900/50 backdrop-blur-sm p-2 rounded-lg flex items-center gap-2">
+                <button id="zoomOutBtn" class="w-8 h-8 font-bold text-lg">-</button>
+                <input type="range" id="zoomSlider" min="0" max="100" value="0" class="w-32">
+                <button id="zoomInBtn" class="w-8 h-8 font-bold text-lg">+</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden canvas for original image data -->
+    <canvas id="originalCanvas" class="hidden"></canvas>
+
+    <script>
+        // === DOM ELEMENTS ===
+        const imageLoader = document.getElementById('imageLoader');
+        const originalCanvas = document.getElementById('originalCanvas');
+        const originalCtx = originalCanvas.getContext('2d');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const previewCtx = previewCanvas.getContext('2d', { willReadFrequently: true });
+        const asciiOutput = document.getElementById('asciiOutput');
+        const downloadButton = document.getElementById('downloadButton');
+        const previewPlaceholder = document.getElementById('previewPlaceholder');
+        const brightnessSlider = document.getElementById('brightness');
+        const contrastSlider = document.getElementById('contrast');
+        const complexitySlider = document.getElementById('complexity');
+        
+        // Mode specific elements
+        const modeBitmapBtn = document.getElementById('modeBitmap');
+        const modeHalftoneBtn = document.getElementById('modeHalftone');
+        const modeAsciiBtn = document.getElementById('modeAscii');
+        const bitmapControls = document.getElementById('bitmapControls');
+        const halftoneControls = document.getElementById('halftoneControls');
+        const asciiControls = document.getElementById('asciiControls');
+        const ditheringAlgorithmSelect = document.getElementById('ditheringAlgorithm');
+        const dotShapeSelect = document.getElementById('dotShape');
+        const characterSetInput = document.getElementById('characterSet');
+
+        const bgColorPicker = document.getElementById('bgColor');
+        const fgColorPicker = document.getElementById('fgColor');
+        const bgColorDisplay = document.getElementById('bgColorDisplay');
+        const fgColorDisplay = document.getElementById('fgColorDisplay');
+        const swapColorsButton = document.getElementById('swapColorsButton');
+        
+        const sourceImageContainer = document.getElementById('sourceImageContainer');
+        const sourceImagePreview = document.getElementById('sourceImagePreview');
+        const imageName = document.getElementById('imageName');
+        const replaceImageButton = document.getElementById('replaceImageButton');
+        const uploadContainer = document.getElementById('uploadContainer');
+        const resetControlsButton = document.getElementById('resetControlsButton');
+
+        const suggestPaletteButton = document.getElementById('suggestPaletteButton');
+        const suggestPaletteSpinner = document.getElementById('suggestPaletteSpinner');
+        const paletteDescription = document.getElementById('paletteDescription');
+        
+        const describeArtButton = document.getElementById('describeArtButton');
+        const describeArtSpinner = document.getElementById('describeArtSpinner');
+        const artDescription = document.getElementById('artDescription');
+
+        // Zoom elements
+        const previewContainer = document.getElementById('previewContainer');
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomInBtn = document.getElementById('zoomInBtn');
+        const zoomOutBtn = document.getElementById('zoomOutBtn');
+
+
+        let originalImageData = null;
+        let currentMode = 'bitmap';
+
+        const defaultSettings = {
+            brightness: 0,
+            contrast: 0,
+            complexity: 100,
+            ditheringAlgorithm: 'floyd-steinberg',
+            dotShape: 'circle',
+            characterSet: '@%#*+=-:. ',
+            bgColor: '#000000',
+            fgColor: '#ffffff'
+        };
+
+        // === EVENT LISTENERS ===
+        imageLoader.addEventListener('change', handleImageUpload);
+        replaceImageButton.addEventListener('click', () => imageLoader.click());
+        resetControlsButton.addEventListener('click', resetControls);
+        
+        modeBitmapBtn.addEventListener('click', () => setMode('bitmap'));
+        modeHalftoneBtn.addEventListener('click', () => setMode('halftone'));
+        modeAsciiBtn.addEventListener('click', () => setMode('ascii'));
+
+        [brightnessSlider, contrastSlider, complexitySlider, ditheringAlgorithmSelect, dotShapeSelect, characterSetInput, bgColorPicker, fgColorPicker].forEach(el => {
+            el.addEventListener('input', () => {
+                if(originalImageData) processImage();
+            });
+        });
+
+        bgColorPicker.addEventListener('input', (e) => {
+            bgColorDisplay.style.backgroundColor = e.target.value;
+            if (currentMode === 'ascii') asciiOutput.style.backgroundColor = e.target.value;
+        });
+        fgColorPicker.addEventListener('input', (e) => {
+            fgColorDisplay.style.backgroundColor = e.target.value;
+            if (currentMode === 'ascii') asciiOutput.style.color = e.target.value;
+        });
+        
+        swapColorsButton.addEventListener('click', () => {
+            const bg = bgColorPicker.value;
+            const fg = fgColorPicker.value;
+            bgColorPicker.value = fg;
+            fgColorPicker.value = bg;
+            // Manually trigger input events to update displays and re-process
+            bgColorPicker.dispatchEvent(new Event('input'));
+            fgColorPicker.dispatchEvent(new Event('input'));
+        });
+        
+        suggestPaletteButton.addEventListener('click', getPaletteSuggestion);
+        describeArtButton.addEventListener('click', getArtDescription);
+        downloadButton.addEventListener('click', downloadContent);
+
+        // === FUNCTIONS ===
+
+        function setMode(mode) {
+            currentMode = mode;
+            modeBitmapBtn.classList.toggle('active', mode === 'bitmap');
+            modeHalftoneBtn.classList.toggle('active', mode === 'halftone');
+            modeAsciiBtn.classList.toggle('active', mode === 'ascii');
+            
+            bitmapControls.classList.toggle('hidden', mode !== 'bitmap');
+            halftoneControls.classList.toggle('hidden', mode !== 'halftone');
+            asciiControls.classList.toggle('hidden', mode !== 'ascii');
+            
+            if (originalImageData) {
+                processImage();
+            }
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                // THIS IS THE CORS FIX
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    originalCanvas.width = img.width;
+                    originalCanvas.height = img.height;
+                    originalCtx.drawImage(img, 0, 0);
+                    originalImageData = originalCtx.getImageData(0, 0, img.width, img.height);
+                    
+                    sourceImagePreview.src = e.target.result;
+                    imageName.textContent = file.name;
+                    sourceImageContainer.classList.remove('hidden');
+                    uploadContainer.classList.add('hidden');
+                    previewPlaceholder.classList.add('hidden');
+                    downloadButton.disabled = false;
+                    suggestPaletteButton.disabled = false;
+                    describeArtButton.disabled = false;
+
+                    processImage();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function processImage() {
+            if (!originalImageData) return;
+            artDescription.classList.add('hidden');
+            
+            previewCanvas.classList.add('hidden');
+            asciiOutput.classList.add('hidden');
+
+            if (currentMode === 'bitmap') {
+                previewCanvas.classList.remove('hidden');
+                processBitmap();
+            } else if (currentMode === 'halftone') {
+                previewCanvas.classList.remove('hidden');
+                processHalftone();
+            } else {
+                asciiOutput.classList.remove('hidden');
+                processAscii();
+            }
+        }
+
+        function getProcessedGrayData() {
+            const width = originalImageData.width;
+            const height = originalImageData.height;
+            const imageData = new ImageData(new Uint8ClampedArray(originalImageData.data), width, height);
+            const data = imageData.data;
+            
+            const brightness = parseInt(brightnessSlider.value);
+            const contrast = parseInt(contrastSlider.value);
+            const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = truncateColor(factor * (truncateColor(data[i] + brightness) - 128) + 128);
+                data[i + 1] = truncateColor(factor * (truncateColor(data[i + 1] + brightness) - 128) + 128);
+                data[i + 2] = truncateColor(factor * (truncateColor(data[i + 2] + brightness) - 128) + 128);
+            }
+
+            const grayData = new Uint8ClampedArray(width * height);
+            for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+                grayData[j] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+            }
+            return { grayData, width, height };
+        }
+        
+        // Dithering Kernels
+        const kernels = {
+            'floyd-steinberg': { divisor: 16, matrix: [ [0,0,7], [3,5,1] ] },
+            'jarvis-judice-ninke': { divisor: 48, matrix: [ [0,0,0,7,5], [3,5,7,5,3], [1,3,5,3,1] ] },
+            'stucki': { divisor: 42, matrix: [ [0,0,0,8,4], [2,4,8,4,2], [1,2,4,2,1] ] },
+            'atkinson': { divisor: 8, matrix: [ [0,0,1,1], [1,1,1,0], [0,1,0,0] ] }
+        };
+
+        const bayerMatrices = {
+            'bayer4x4': [
+                [ 0,  8,  2, 10], [12,  4, 14,  6], [ 3, 11,  1,  9], [15,  7, 13,  5]
+            ],
+            'bayer8x8': [
+                [ 0, 32,  8, 40,  2, 34, 10, 42], [48, 16, 56, 24, 50, 18, 58, 26],
+                [12, 44,  4, 36, 14, 46,  6, 38], [60, 28, 52, 20, 62, 30, 54, 22],
+                [ 3, 35, 11, 43,  1, 33,  9, 41], [51, 19, 59, 27, 49, 17, 57, 25],
+                [15, 47,  7, 39, 13, 45,  5, 37], [63, 31, 55, 23, 61, 29, 53, 21]
+            ]
+        };
+
+        function processBitmap() {
+            const { grayData, width, height } = getProcessedGrayData();
+            previewCanvas.width = width;
+            previewCanvas.height = height;
+            
+            const algorithm = ditheringAlgorithmSelect.value;
+            const complexity = parseInt(complexitySlider.value) / 100;
+            const threshold = 128;
+            
+            if (kernels[algorithm]) { // Error Diffusion
+                const kernel = kernels[algorithm];
+                const matrix = kernel.matrix;
+                const divisor = kernel.divisor;
+                const matrixWidth = matrix[0].length;
+                const matrixOffset = Math.floor(matrixWidth / 2);
+
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const index = y * width + x;
+                        const oldPixel = grayData[index];
+                        const newPixel = oldPixel < threshold ? 0 : 255;
+                        grayData[index] = newPixel;
+                        
+                        const quantError = (oldPixel - newPixel) * complexity;
+
+                        for (let my = 0; my < matrix.length; my++) {
+                            for (let mx = 0; mx < matrixWidth; mx++) {
+                                const weight = matrix[my][mx];
+                                if (weight === 0) continue;
+                                const nx = x + mx - matrixOffset;
+                                const ny = y + my;
+                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                    const nIndex = ny * width + nx;
+                                    grayData[nIndex] += quantError * weight / divisor;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (bayerMatrices[algorithm]) { // Ordered Dithering
+                const matrix = bayerMatrices[algorithm];
+                const matrixSize = matrix.length;
+                const factor = 256 / (matrixSize * matrixSize);
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const index = y * width + x;
+                        const bayerValue = matrix[y % matrixSize][x % matrixSize] * factor;
+                        grayData[index] = grayData[index] < bayerValue ? 0 : 255;
+                    }
+                }
+            }
+
+
+            const finalImageData = previewCtx.createImageData(width, height);
+            const finalData = finalImageData.data;
+            const bgColor = hexToRgb(bgColorPicker.value);
+            const fgColor = hexToRgb(fgColorPicker.value);
+            
+            for (let i = 0, j = 0; i < finalData.length; i += 4, j++) {
+                const color = grayData[j] < threshold ? bgColor : fgColor;
+                finalData[i] = color.r;
+                finalData[i + 1] = color.g;
+                finalData[i + 2] = color.b;
+                finalData[i + 3] = 255;
+            }
+            previewCtx.putImageData(finalImageData, 0, 0);
+        }
+
+        function processHalftone() {
+            const { grayData, width, height } = getProcessedGrayData();
+            previewCanvas.width = width;
+            previewCanvas.height = height;
+
+            const complexity = parseInt(complexitySlider.value);
+            const minSize = 20;
+            const maxSize = 2;
+            const dotSize = Math.round(minSize - (complexity / 100) * (minSize - maxSize));
+            const shape = dotShapeSelect.value;
+            
+            const bgColor = bgColorPicker.value;
+            const fgColor = fgColorPicker.value;
+            
+            previewCtx.fillStyle = bgColor;
+            previewCtx.fillRect(0, 0, width, height);
+            previewCtx.fillStyle = fgColor;
+
+            for (let y = 0; y < height; y += dotSize) {
+                for (let x = 0; x < width; x += dotSize) {
+                    let totalGray = 0;
+                    let count = 0;
+                    for (let blockY = 0; blockY < dotSize; blockY++) {
+                        for (let blockX = 0; blockX < dotSize; blockX++) {
+                            if (y + blockY < height && x + blockX < width) {
+                                totalGray += grayData[(y + blockY) * width + (x + blockX)];
+                                count++;
+                            }
+                        }
+                    }
+                    const avgGray = totalGray / count;
+                    const radius = (1 - avgGray / 255) * (dotSize / 2);
+                    
+                    if (radius > 0) {
+                        previewCtx.beginPath();
+                        if (shape === 'circle') {
+                            previewCtx.arc(x + dotSize / 2, y + dotSize / 2, radius, 0, 2 * Math.PI, false);
+                        } else { // square
+                            const side = radius * 2;
+                            previewCtx.rect(x + (dotSize - side) / 2, y + (dotSize - side) / 2, side, side);
+                        }
+                        previewCtx.fill();
+                    }
+                }
+            }
+        }
+
+        function processAscii() {
+            const { grayData, width, height } = getProcessedGrayData();
+            const complexity = parseInt(complexitySlider.value);
+            const minRes = 40;
+            const maxRes = 2;
+            const resolution = Math.round(minRes - (complexity / 100) * (minRes - maxRes));
+
+            const characters = characterSetInput.value;
+            const numChars = characters.length;
+            
+            let asciiString = '';
+            for (let y = 0; y < height; y += resolution) {
+                for (let x = 0; x < width; x += resolution) {
+                    let totalGray = 0;
+                    let count = 0;
+                    for (let blockY = 0; blockY < resolution; blockY++) {
+                        for (let blockX = 0; blockX < resolution; blockX++) {
+                            if (y + blockY < height && x + blockX < width) {
+                                totalGray += grayData[(y + blockY) * width + (x + blockX)];
+                                count++;
+                            }
+                        }
+                    }
+                    const avgGray = totalGray / count;
+                    const charIndex = Math.floor((avgGray / 255) * (numChars - 1));
+                    asciiString += characters[charIndex] || ' ';
+                }
+                asciiString += '\n';
+            }
+            
+            asciiOutput.textContent = asciiString;
+            asciiOutput.style.backgroundColor = bgColorPicker.value;
+            asciiOutput.style.color = fgColorPicker.value;
+            
+            const panel = document.getElementById('previewPanel');
+            const panelWidth = panel.clientWidth;
+            const panelHeight = panel.clientHeight;
+            const cols = asciiString.split('\n')[0].length;
+            const rows = asciiString.split('\n').length;
+            
+            const charWidth = panelWidth / cols;
+            const charHeight = panelHeight / rows;
+            
+            const fontSize = Math.min(charWidth * 1.5, charHeight);
+            asciiOutput.style.fontSize = `${fontSize}px`;
+        }
+        
+        function resetControls() {
+            Object.keys(defaultSettings).forEach(key => {
+                const el = document.getElementById(key) || document.getElementById(key + 'Select');
+                if (el) el.value = defaultSettings[key];
+            });
+            bgColorDisplay.style.backgroundColor = defaultSettings.bgColor;
+            fgColorDisplay.style.backgroundColor = defaultSettings.fgColor;
+            if (originalImageData) processImage();
+        }
+
+        async function getPaletteSuggestion() {
+            if (!originalImageData) { alert("Please upload an image first."); return; }
+            setLoadingState(suggestPaletteButton, suggestPaletteSpinner, true);
+            paletteDescription.classList.add('hidden');
+
+            const thumbnailBase64 = createThumbnailForAPI(sourceImagePreview);
+            const base64ImageData = thumbnailBase64.split(',')[1];
+            
+            const prompt = "Analyze this image. Suggest an aesthetically pleasing duotone color palette. Provide a dark background color and a light foreground color. Also provide a short, one-sentence description of the mood this palette evokes. Respond ONLY with a valid JSON object: {\"bgColor\": \"#XXXXXX\", \"fgColor\": \"#XXXXXX\", \"description\": \"Your description here.\"}";
+            
+            try {
+                const result = await callGeminiAPI(prompt, base64ImageData, 'image/jpeg');
+                let jsonString = result.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
+                const parsed = JSON.parse(jsonString);
+                
+                bgColorPicker.value = parsed.bgColor;
+                fgColorPicker.value = parsed.fgColor;
+                bgColorDisplay.style.backgroundColor = parsed.bgColor;
+                fgColorDisplay.style.backgroundColor = parsed.fgColor;
+                paletteDescription.textContent = parsed.description;
+                paletteDescription.classList.remove('hidden');
+                processImage();
+            } catch (error) {
+                console.error("Error fetching palette suggestion:", error);
+                paletteDescription.textContent = "Sorry, couldn't get a suggestion.";
+                paletteDescription.classList.remove('hidden');
+            } finally {
+                setLoadingState(suggestPaletteButton, suggestPaletteSpinner, false);
+            }
+        }
+
+        async function getArtDescription() {
+            setLoadingState(describeArtButton, describeArtSpinner, true);
+            artDescription.classList.add('hidden');
+            
+            const stylePrompt = currentMode === 'bitmap'
+                ? `This is a duotone, dithered bitmap image using the ${ditheringAlgorithmSelect.value} algorithm. The colors are BG: ${bgColorPicker.value} and FG: ${fgColorPicker.value}.`
+                : currentMode === 'halftone'
+                ? `This is a duotone, halftone image with ${dotShapeSelect.value} dots. The colors are BG: ${bgColorPicker.value} and FG: ${fgColorPicker.value}.`
+                : `This is a duotone ASCII art piece. The colors are BG: ${bgColorPicker.value} and FG: ${fgColorPicker.value}.`;
+            
+            const prompt = `${stylePrompt} Write a short, evocative, and artistic description for an art gallery display card. Focus on the mood and style.`;
+            
+            const imageToSend = currentMode === 'ascii' 
+                ? await createAsciiImageBase64()
+                : previewCanvas.toDataURL('image/png').split(',')[1];
+
+            try {
+                const result = await callGeminiAPI(prompt, imageToSend, 'image/png');
+                let description = result.candidates[0].content.parts[0].text.replace(/```/g, '').trim();
+                artDescription.textContent = description;
+                artDescription.classList.remove('hidden');
+            } catch (error) {
+                console.error("Error fetching art description:", error);
+                artDescription.textContent = "Sorry, couldn't generate a description.";
+                artDescription.classList.remove('hidden');
+            } finally {
+                setLoadingState(describeArtButton, describeArtSpinner, false);
+            }
+        }
+
+        async function createAsciiImageBase64() {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            const lines = asciiOutput.innerText.split('\n');
+            const fontSize = parseFloat(asciiOutput.style.fontSize);
+            const lineHeight = fontSize;
+            
+            tempCanvas.width = asciiOutput.clientWidth;
+            tempCanvas.height = asciiOutput.clientHeight;
+            
+            tempCtx.fillStyle = bgColorPicker.value;
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            
+            tempCtx.font = `${fontSize}px 'Courier New', Courier, monospace`;
+            tempCtx.fillStyle = fgColorPicker.value;
+            tempCtx.textBaseline = 'top';
+
+            for(let i = 0; i < lines.length; i++) {
+                tempCtx.fillText(lines[i], 0, i * lineHeight);
+            }
+            
+            return tempCanvas.toDataURL('image/png').split(',')[1];
+        }
+
+        async function callGeminiAPI(prompt, base64ImageData, mimeType) {
+            const apiKey = ""; // Provided by environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType, data: base64ImageData } }] }] };
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) throw new Error(`API call failed: ${response.status}`);
+            return response.json();
+        }
+
+        function downloadContent() {
+            const link = document.createElement('a');
+            if (currentMode === 'ascii') {
+                link.download = 'ascii-art.txt';
+                const blob = new Blob([asciiOutput.textContent], { type: 'text/plain' });
+                link.href = URL.createObjectURL(blob);
+            } else {
+                link.download = `${currentMode}-image.png`;
+                link.href = previewCanvas.toDataURL('image/png');
+            }
+            link.click();
+        }
+
+        function createThumbnailForAPI(imgElement, maxWidth = 512, maxHeight = 512) {
+            const c = document.createElement('canvas');
+            const ctx = c.getContext('2d');
+            let w = imgElement.naturalWidth, h = imgElement.naturalHeight;
+            if (w > h) { if (w > maxWidth) { h = Math.round((h * maxWidth) / w); w = maxWidth; } }
+            else { if (h > maxHeight) { w = Math.round((w * maxHeight) / h); h = maxHeight; } }
+            c.width = w; c.height = h;
+            ctx.drawImage(imgElement, 0, 0, w, h);
+            return c.toDataURL('image/jpeg', 0.9); 
+        }
+
+        function truncateColor(value) { return Math.max(0, Math.min(255, value)); }
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
+        }
+        function setLoadingState(button, spinner, isLoading) {
+            button.disabled = isLoading;
+            spinner.classList.toggle('hidden', !isLoading);
+        }
+
+        // --- Zoom and Pan Logic ---
+        let scale = 1, minScale = 1, maxScale = 10;
+        let pan = { x: 0, y: 0 };
+        let isPanning = false;
+        let startPan = { x: 0, y: 0 };
+
+        function updateZoom() {
+            const previewWidth = previewContainer.offsetWidth;
+            const contentWidth = currentMode === 'bitmap' ? previewCanvas.width : asciiOutput.scrollWidth;
+            minScale = previewWidth / contentWidth;
+            if (contentWidth < previewWidth) minScale = 1;
+            scale = Math.max(minScale, Math.min(maxScale, scale));
+            previewContainer.style.transform = `scale(${scale}) translate(${pan.x}px, ${pan.y}px)`;
+            zoomSlider.value = ((scale - minScale) / (maxScale - minScale)) * 100 || 0;
+        }
+
+        zoomSlider.addEventListener('input', (e) => {
+            scale = minScale + (e.target.value / 100) * (maxScale - minScale);
+            updateZoom();
+        });
+        zoomInBtn.addEventListener('click', () => { scale *= 1.2; updateZoom(); });
+        zoomOutBtn.addEventListener('click', () => { scale /= 1.2; updateZoom(); });
+
+        previewContainer.addEventListener('mousedown', (e) => {
+            if (scale <= minScale) return;
+            isPanning = true;
+            previewContainer.classList.add('grabbing');
+            startPan = { x: e.clientX - pan.x * scale, y: e.clientY - pan.y * scale };
+            e.preventDefault();
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!isPanning) return;
+            pan.x = (e.clientX - startPan.x) / scale;
+            pan.y = (e.clientY - startPan.y) / scale;
+            updateZoom();
+        });
+        window.addEventListener('mouseup', () => {
+            isPanning = false;
+            previewContainer.classList.remove('grabbing');
+        });
+    </script>
+</body>
+</html>
